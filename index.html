@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checklist Diário — LED Internet</title>
+
+<!-- FIREBASE SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // ============================================================
+  const firebaseConfig = {
+    apiKey: "AIzaSyDDnxVRO2UIfps8TPNo26cOEEKqQCIrWvU",
+    authDomain: "led-checklist-f2a8f.firebaseapp.com",
+    projectId: "led-checklist-f2a8f",
+    storageBucket: "led-checklist-f2a8f.firebasestorage.app",
+    messagingSenderId: "889144288291",
+    appId: "1:889144288291:web:c0b17d3893fa313a48fd96"
+  };
+  // ============================================================
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  window._db = db;
+  window._firestoreReady = true;
+  window._fsDoc = doc;
+  window._fsSetDoc = setDoc;
+  window._fsOnSnapshot = onSnapshot;
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+
+<style>
+  :root {
+    --bg: #F0F4F8; --card: #FFFFFF; --azul: #1A3A5C; --azul-claro: #2563EB;
+    --verde: #059669; --verde-claro: #D1FAE5; --laranja: #D97706;
+    --laranja-claro: #FEF3C7; --vermelho: #DC2626; --texto: #1F2937;
+    --texto-leve: #6B7280; --borda: #E5E7EB;
+    --sombra: 0 1px 3px rgba(0,0,0,0.08); --sombra-card: 0 4px 6px rgba(0,0,0,0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#0F1923; --card:#1C2B3A; --azul:#3B82F6; --verde:#10B981;
+      --verde-claro:#064E3B; --laranja:#F59E0B; --laranja-claro:#451A03;
+      --texto:#F3F4F6; --texto-leve:#9CA3AF; --borda:#2D3F50;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--texto); min-height: 100vh; padding-bottom: 40px; }
+
+  /* HEADER */
+  .header { background: var(--azul); color: #fff; padding: 20px 20px 16px; position: sticky; top: 0; z-index: 50; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+  .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .header-logo { font-size: 18px; font-weight: 800; }
+  .header-logo span { opacity: 0.7; font-weight: 400; font-size: 13px; display: block; margin-top: 1px; }
+  .header-date { font-size: 12px; opacity: 0.75; text-align: right; }
+
+  /* TABS */
+  .tabs { display: flex; border-bottom: 1px solid var(--borda); background: var(--card); position: sticky; top: 73px; z-index: 40; }
+  .tab { flex: 1; padding: 13px 8px; text-align: center; font-size: 13px; font-weight: 600; color: var(--texto-leve); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; user-select: none; }
+  .tab.active { color: var(--azul); border-bottom-color: var(--azul); }
+  .tab-icon { font-size: 16px; display: block; margin-bottom: 2px; }
+
+  /* PANELS */
+  .panel { display: none; padding: 16px; max-width: 680px; margin: 0 auto; }
+  .panel.active { display: block; }
+
+  /* VENDEDOR BOX */
+  .vendedor-box { background: var(--card); border-radius: 12px; padding: 16px; box-shadow: var(--sombra-card); margin-bottom: 16px; }
+  .vendedor-box label { font-size: 12px; font-weight: 600; color: var(--texto-leve); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px; }
+  .vendedor-box select { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1.5px solid var(--borda); background: var(--bg); color: var(--texto); font-size: 15px; font-weight: 500; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%236B7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; cursor: pointer; }
+  .data-info { font-size: 13px; color: var(--texto-leve); margin-top: 8px; }
+
+  /* SECAO */
+  .secao-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--texto-leve); margin: 20px 0 10px; display: flex; align-items: center; gap: 8px; }
+  .secao-title::after { content: ''; flex: 1; height: 1px; background: var(--borda); }
+
+  /* PROGRESS */
+  .progress-box { background: var(--card); border-radius: 12px; padding: 14px 16px; box-shadow: var(--sombra-card); margin-bottom: 8px; }
+  .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .progress-label { font-size: 13px; font-weight: 600; }
+  .progress-count { font-size: 13px; font-weight: 700; color: var(--azul); }
+  .progress-bar { height: 6px; background: var(--borda); border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--verde); border-radius: 99px; transition: width 0.4s ease; }
+
+  /* TASK */
+  .task-card { background: var(--card); border-radius: 12px; box-shadow: var(--sombra); margin-bottom: 8px; border: 1.5px solid var(--borda); transition: border-color 0.2s; }
+  .task-card.done { border-color: var(--verde); background: var(--verde-claro); }
+  .task-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .task-check { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--borda); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; background: var(--bg); }
+  .task-card.done .task-check { background: var(--verde); border-color: var(--verde); }
+  .task-check svg { opacity: 0; transition: opacity 0.2s; }
+  .task-card.done .task-check svg { opacity: 1; }
+  .task-text { flex: 1; font-size: 15px; font-weight: 500; line-height: 1.3; }
+  .task-card.done .task-text { text-decoration: line-through; color: var(--texto-leve); }
+  .task-time { font-size: 11px; color: var(--texto-leve); white-space: nowrap; }
+
+  /* BADGE CONCLUIDO */
+  .badge-concluido { display: none; background: var(--verde); color: #fff; text-align: center; padding: 16px; font-size: 15px; font-weight: 700; border-radius: 12px; margin-top: 8px; }
+  .badge-concluido.show { display: block; }
+
+  /* GESTOR */
+  .gestor-card { background: var(--card); border-radius: 12px; box-shadow: var(--sombra-card); margin-bottom: 12px; overflow: hidden; }
+  .gestor-header { padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--borda); cursor: pointer; }
+  .gestor-nome { font-size: 15px; font-weight: 700; }
+  .gestor-badges { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px; }
+  .badge.manha { background: var(--laranja-claro); color: var(--laranja); }
+  .badge.tarde { background: #EDE9FE; color: #7C3AED; }
+  .badge.ok { background: var(--verde-claro); color: var(--verde); }
+  .gestor-body { padding: 12px 16px; display: none; }
+  .gestor-body.open { display: block; }
+  .gestor-subtitulo { font-size: 12px; font-weight: 700; color: var(--texto-leve); text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px; }
+  .gestor-subtitulo.segundo { margin-top: 14px; }
+  .gestor-task-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--borda); }
+  .gestor-task-row:last-child { border-bottom: none; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .dot.ok { background: var(--verde); }
+  .dot.pendente { background: var(--borda); }
+  .gestor-task-text { font-size: 13px; flex: 1; }
+  .gestor-task-time { font-size: 11px; color: var(--texto-leve); white-space: nowrap; }
+  .update-time { font-size: 11px; color: var(--texto-leve); padding-top: 8px; }
+
+  /* LOADING / ESTADOS */
+  .loading { text-align: center; padding: 40px 20px; color: var(--texto-leve); font-size: 14px; }
+  .aviso-firebase { background: #FEF3C7; color: #92400E; border-radius: 10px; padding: 12px 14px; font-size: 13px; font-weight: 500; margin-bottom: 12px; line-height: 1.5; }
+  .sem-dados { text-align: center; color: var(--texto-leve); font-size: 13px; padding: 20px 0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div class="header-logo">LED Internet <span>Checklist Diário</span></div>
+    <div class="header-date" id="headerDate"></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="trocarAba('vendedor')">
+    <span class="tab-icon">✅</span>Minhas Tarefas
+  </div>
+  <div class="tab" onclick="trocarAba('gestor')">
+    <span class="tab-icon">📊</span>Painel Gestor
+  </div>
+</div>
+
+<!-- ABA VENDEDOR -->
+<div class="panel active" id="panel-vendedor">
+  <div id="avisoFirebase" class="aviso-firebase" style="display:none">
+    ⚠️ Firebase não configurado ainda. Cole as configurações do seu projeto Firebase no arquivo HTML conforme o tutorial.
+  </div>
+  <div class="vendedor-box">
+    <label>Quem está acessando?</label>
+    <select id="selectVendedor" onchange="selecionarVendedor()">
+      <option value="">— Selecione seu nome —</option>
+      <option value="danilo">Danilo Henrique</option>
+      <option value="lorena">Lorena Tassia</option>
+      <option value="silvania">Silvania Rodrigues</option>
+      <option value="victor">Victor Luiz</option>
+      <option value="karoline">Karoline Carvalho</option>
+    </select>
+    <div class="data-info" id="dataInfo"></div>
+  </div>
+
+  <div id="checklistArea" style="display:none">
+    <div class="secao-title">🌅 Início de Expediente</div>
+    <div class="progress-box">
+      <div class="progress-header">
+        <span class="progress-label">Progresso manhã</span>
+        <span class="progress-count" id="countManha">0/4</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="barManha" style="width:0%"></div></div>
+    </div>
+    <div id="tarefasManha"></div>
+    <div class="badge-concluido" id="badgeManha">🎉 Início de expediente 100% concluído!</div>
+
+    <div class="secao-title">🌆 Final de Expediente</div>
+    <div class="progress-box">
+      <div class="progress-header">
+        <span class="progress-label">Progresso final</span>
+        <span class="progress-count" id="countTarde">0/7</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="barTarde" style="width:0%"></div></div>
+    </div>
+    <div id="tarefasTarde"></div>
+    <div class="badge-concluido" id="badgeTarde">🎉 Final de expediente 100% concluído!</div>
+  </div>
+</div>
+
+<!-- ABA GESTOR -->
+<div class="panel" id="panel-gestor">
+  <div class="loading" id="loadingGestor">Carregando dados em tempo real...</div>
+  <div id="gestorConteudo" style="display:none"></div>
+</div>
+
+<script>
+const TAREFAS_MANHA = [
+  "Verificar planilha de indicação",
+  "Verificar instalações aguardando agendamento",
+  "Ativar disponibilidade no Fluctus",
+  "Verificar grupo de callcenter"
+];
+const TAREFAS_TARDE = [
+  "Coordenadas rede neutra",
+  "Confirmação instalação próximos dias",
+  "Conferir e preencher grupo de clientes no Hubsoft",
+  "Atualizar CRM",
+  "Preencher planilha melhor plano",
+  "Mensagem de encerramento de expediente",
+  "Voltar clientes para fila de atendimento"
+];
+const NOMES = {
+  danilo: "Danilo Henrique", lorena: "Lorena Tassia",
+  silvania: "Silvania Rodrigues", victor: "Victor Luiz", karoline: "Karoline Carvalho"
+};
+
+let firebaseOk = false;
+let estadoLocal = {};
+let vendedorAtual = null;
+let unsubAtual = null;
+
+function dataHoje() {
+  return new Date().toISOString().slice(0, 10);
+}
+function horaAgora() {
+  return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+function docId(vendedor) {
+  return vendedor + '_' + dataHoje();
+}
+
+// Header
+(function () {
+  const d = new Date();
+  document.getElementById('headerDate').textContent =
+    d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
+  document.getElementById('dataInfo').textContent =
+    'Checklist do dia ' + d.toLocaleDateString('pt-BR');
+})();
+
+// Aguarda Firebase
+window.addEventListener('firebase-ready', () => {
+  firebaseOk = true;
+  document.getElementById('avisoFirebase').style.display = 'none';
+});
+
+// Verifica se Firebase foi configurado (detecta placeholder)
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    if (!firebaseOk) {
+      document.getElementById('avisoFirebase').style.display = 'block';
+    }
+  }, 2000);
+});
+
+function trocarAba(aba) {
+  document.querySelectorAll('.tab').forEach((t, i) =>
+    t.classList.toggle('active', (i === 0 && aba === 'vendedor') || (i === 1 && aba === 'gestor')));
+  document.getElementById('panel-vendedor').classList.toggle('active', aba === 'vendedor');
+  document.getElementById('panel-gestor').classList.toggle('active', aba === 'gestor');
+  if (aba === 'gestor') carregarGestor();
+}
+
+function selecionarVendedor() {
+  const sel = document.getElementById('selectVendedor').value;
+  if (!sel) { document.getElementById('checklistArea').style.display = 'none'; return; }
+  vendedorAtual = sel;
+  estadoLocal = {};
+  document.getElementById('checklistArea').style.display = 'block';
+  renderChecklist({});
+  if (unsubAtual) { unsubAtual(); unsubAtual = null; }
+  if (firebaseOk) ouvirChecklist(sel);
+}
+
+function renderTarefa(id, texto, feita, hora, container) {
+  const div = document.createElement('div');
+  div.className = 'task-card' + (feita ? ' done' : '');
+  div.id = 'task-' + id;
+  div.innerHTML = `
+    <div class="task-row" onclick="toggleTarefa('${id}')">
+      <div class="task-check">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M2 6l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="task-text">${texto}</div>
+      ${feita && hora ? `<div class="task-time">${hora}</div>` : ''}
+    </div>`;
+  container.appendChild(div);
+}
+
+function renderChecklist(dados) {
+  const dm = document.getElementById('tarefasManha');
+  const dt = document.getElementById('tarefasTarde');
+  dm.innerHTML = ''; dt.innerHTML = '';
+  TAREFAS_MANHA.forEach((t, i) => {
+    const id = 'manha_' + i;
+    const item = dados[id] || {};
+    renderTarefa(id, t, item.feita, item.hora, dm);
+  });
+  TAREFAS_TARDE.forEach((t, i) => {
+    const id = 'tarde_' + i;
+    const item = dados[id] || {};
+    renderTarefa(id, t, item.feita, item.hora, dt);
+  });
+  atualizarProgress(dados);
+}
+
+function atualizarProgress(dados) {
+  const tm = TAREFAS_MANHA.map((_, i) => dados['manha_' + i]?.feita).filter(Boolean).length;
+  const tt = TAREFAS_TARDE.map((_, i) => dados['tarde_' + i]?.feita).filter(Boolean).length;
+  document.getElementById('countManha').textContent = tm + '/' + TAREFAS_MANHA.length;
+  document.getElementById('countTarde').textContent = tt + '/' + TAREFAS_TARDE.length;
+  document.getElementById('barManha').style.width = (tm / TAREFAS_MANHA.length * 100) + '%';
+  document.getElementById('barTarde').style.width = (tt / TAREFAS_TARDE.length * 100) + '%';
+  document.getElementById('badgeManha').classList.toggle('show', tm === TAREFAS_MANHA.length);
+  document.getElementById('badgeTarde').classList.toggle('show', tt === TAREFAS_TARDE.length);
+}
+
+function ouvirChecklist(vendedor) {
+  if (!firebaseOk) return;
+  const db = window._db;
+  const docRef = window._fsDoc(db, 'checklists', docId(vendedor));
+  unsubAtual = window._fsOnSnapshot(docRef, snap => {
+    estadoLocal = snap.exists() ? (snap.data() || {}) : {};
+    renderChecklist(estadoLocal);
+  });
+}
+
+async function toggleTarefa(id) {
+  if (!vendedorAtual || !firebaseOk) return;
+  const atual = estadoLocal[id] || {};
+  const novoFeita = !atual.feita;
+  estadoLocal = {
+    ...estadoLocal,
+    [id]: { feita: novoFeita, hora: novoFeita ? horaAgora() : null },
+    ultimaAtualizacao: new Date().toISOString()
+  };
+  // Otimismo: atualiza UI imediatamente
+  const card = document.getElementById('task-' + id);
+  if (card) card.className = 'task-card' + (novoFeita ? ' done' : '');
+  atualizarProgress(estadoLocal);
+  try {
+    const db = window._db;
+    const docRef = window._fsDoc(db, 'checklists', docId(vendedorAtual));
+    await window._fsSetDoc(docRef, estadoLocal);
+  } catch (e) {
+    console.error('Erro ao salvar:', e);
+  }
+}
+
+// GESTOR
+let gestorUnsubs = [];
+function carregarGestor() {
+  if (!firebaseOk) {
+    document.getElementById('loadingGestor').textContent = 'Firebase não configurado.';
+    return;
+  }
+  gestorUnsubs.forEach(u => u());
+  gestorUnsubs = [];
+  document.getElementById('loadingGestor').style.display = 'block';
+  document.getElementById('gestorConteudo').style.display = 'none';
+  const db = window._db;
+  const vendedores = Object.keys(NOMES);
+  const dados = {};
+  let carregados = 0;
+  vendedores.forEach(v => {
+    dados[v] = {};
+    const docRef = window._fsDoc(db, 'checklists', docId(v));
+    const unsub = window._fsOnSnapshot(docRef, snap => {
+      dados[v] = snap.exists() ? (snap.data() || {}) : {};
+      if (carregados < vendedores.length) carregados++;
+      if (carregados >= vendedores.length) {
+        document.getElementById('loadingGestor').style.display = 'none';
+        document.getElementById('gestorConteudo').style.display = 'block';
+      }
+      renderGestor(dados);
+    });
+    gestorUnsubs.push(unsub);
+  });
+}
+
+function renderGestor(dados) {
+  const cont = document.getElementById('gestorConteudo');
+  cont.innerHTML = '';
+  Object.keys(NOMES).forEach(v => {
+    const d = dados[v] || {};
+    const tm = TAREFAS_MANHA.map((_, i) => d['manha_' + i]?.feita).filter(Boolean).length;
+    const tt = TAREFAS_TARDE.map((_, i) => d['tarde_' + i]?.feita).filter(Boolean).length;
+    const upd = d.ultimaAtualizacao
+      ? new Date(d.ultimaAtualizacao).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      : null;
+
+    const mBadge = tm === TAREFAS_MANHA.length
+      ? `<span class="badge ok">Manhã ✓</span>`
+      : `<span class="badge manha">Manhã ${tm}/${TAREFAS_MANHA.length}</span>`;
+    const tBadge = tt === TAREFAS_TARDE.length
+      ? `<span class="badge ok">Final ✓</span>`
+      : `<span class="badge tarde">Final ${tt}/${TAREFAS_TARDE.length}</span>`;
+
+    const card = document.createElement('div');
+    card.className = 'gestor-card';
+    card.innerHTML = `
+      <div class="gestor-header" onclick="toggleGestorCard('gc-${v}')">
+        <div class="gestor-nome">${NOMES[v]}</div>
+        <div class="gestor-badges">${mBadge}${tBadge}</div>
+      </div>
+      <div class="gestor-body" id="gc-${v}">
+        <div class="gestor-subtitulo">🌅 Início de Expediente</div>
+        ${TAREFAS_MANHA.map((t, i) => {
+          const item = d['manha_' + i] || {};
+          return `<div class="gestor-task-row">
+            <div class="dot ${item.feita ? 'ok' : 'pendente'}"></div>
+            <div class="gestor-task-text">${t}</div>
+            ${item.feita && item.hora ? `<div class="gestor-task-time">${item.hora}</div>` : ''}
+          </div>`;
+        }).join('')}
+        <div class="gestor-subtitulo segundo">🌆 Final de Expediente</div>
+        ${TAREFAS_TARDE.map((t, i) => {
+          const item = d['tarde_' + i] || {};
+          return `<div class="gestor-task-row">
+            <div class="dot ${item.feita ? 'ok' : 'pendente'}"></div>
+            <div class="gestor-task-text">${t}</div>
+            ${item.feita && item.hora ? `<div class="gestor-task-time">${item.hora}</div>` : ''}
+          </div>`;
+        }).join('')}
+        ${upd ? `<div class="update-time">Última atividade às ${upd}</div>` : ''}
+      </div>`;
+    cont.appendChild(card);
+  });
+}
+
+function toggleGestorCard(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+}
+</script>
+</body>
+</html>
